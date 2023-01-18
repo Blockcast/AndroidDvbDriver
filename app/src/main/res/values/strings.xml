@@ -50,6 +50,7 @@
     <string name="btn_advanced_mode">Diagnostic (Advanced mode)</string>
     <string name="btn_license">License</string>
     <string name="btn_source_code">Source code</string>
+    <string name="btn_device_chooser">Device chooser</string>
     <string name="btn_close">Close</string>
     <string name="cannot_send_email">No email app found. Cannot send email.</string>
     <string name="send_email">Report</string>

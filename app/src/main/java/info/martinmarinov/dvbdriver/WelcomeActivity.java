@@ -26,6 +26,8 @@ import android.os.Bundle;
 import android.app.Activity;
 import android.view.View;
 
+import info.martinmarinov.dvbservice.DeviceChooserActivity;
+
 public class WelcomeActivity extends Activity {
     private final static Uri SOURCE_URL = Uri.parse("https://github.com/signalwareltd/AndroidDvbDriver");
 
@@ -38,7 +40,7 @@ public class WelcomeActivity extends Activity {
 
         findViewById(R.id.btn_advanced_mode).setOnClickListener(v -> startActivity(new Intent(WelcomeActivity.this, DvbFrontendActivity.class)));
 
-        findViewById(R.id.btn_source_code).setOnClickListener(v -> startActivity(new Intent(Intent.ACTION_VIEW, SOURCE_URL)));
+        findViewById(R.id.btn_source_code).setOnClickListener(v -> startActivity(new Intent(WelcomeActivity.this, DeviceChooserActivity.class)));
 
         findViewById(R.id.btn_license).setOnClickListener(v -> startActivity(new Intent(WelcomeActivity.this, GplLicenseActivity.class)));
     }

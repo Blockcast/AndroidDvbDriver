@@ -38,6 +38,7 @@
         </activity>
         <activity android:name=".DvbFrontendActivity" />
         <activity android:name=".GplLicenseActivity" />
+        <activity android:name="info.martinmarinov.dvbservice.DeviceChooserActivity" />
     </application>
 
 </manifest>
