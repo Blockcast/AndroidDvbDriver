@@ -22,20 +22,26 @@ package info.martinmarinov.dvbservice;
 
 import java.io.Serializable;
 
-class DvbServerPorts implements Serializable {
+public class DvbServerPorts implements Serializable {
     private final int controlPort;
     private final int transferPort;
+    private String multicastAddr;
 
-    DvbServerPorts(int controlPort, int transferPort) {
+    public DvbServerPorts(int controlPort, int transferPort, String multicastAddr) {
         this.controlPort = controlPort;
         this.transferPort = transferPort;
+        this.multicastAddr = multicastAddr;
     }
 
-    int getControlPort() {
+    public int getControlPort() {
         return controlPort;
     }
 
-    int getTransferPort() {
+    public int getTransferPort() {
         return transferPort;
+    }
+
+    public String getMulticastAddr() {
+        return multicastAddr;
     }
 }

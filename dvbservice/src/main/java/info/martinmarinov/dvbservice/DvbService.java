@@ -36,6 +36,8 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.util.Log;
 
 import java.io.Serializable;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.util.List;
 
 import info.martinmarinov.drivers.DeviceFilter;
@@ -64,7 +66,7 @@ public class DvbService extends Service {
         activity.startService(intent);
     }
 
-    static StatusMessage parseMessage(Intent intent) {
+    public static StatusMessage parseMessage(Intent intent) {
         return (StatusMessage) intent.getSerializableExtra(STATUS_MESSAGE);
     }
 
@@ -166,10 +168,10 @@ public class DvbService extends Service {
         return null;
     }
 
-    static class StatusMessage implements Serializable {
-        final Exception exception;
-        final DvbServerPorts serverAddresses;
-        final DeviceFilter deviceFilter;
+    public static class StatusMessage implements Serializable {
+        public final Exception exception;
+        public final DvbServerPorts serverAddresses;
+        public final DeviceFilter deviceFilter;
 
         private StatusMessage(Exception exception, DvbServerPorts serverAddresses, DeviceFilter deviceFilter) {
             this.exception = exception;
