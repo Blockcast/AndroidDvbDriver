@@ -27,10 +27,10 @@ import android.content.IntentFilter;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
+
 import androidx.annotation.NonNull;
 import androidx.fragment.app.FragmentActivity;
 
-import androidx.fragment.app.FragmentActivity;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.io.IOException;
@@ -54,6 +54,7 @@ public class DeviceChooserActivity extends FragmentActivity implements ListPicke
     private final static String CONTRACT_ERROR_CODE = "ErrorCode";
     private final static String CONTRACT_CONTROL_PORT = "ControlPort";
     private final static String CONTRACT_TRANSFER_PORT = "TransferPort";
+    private final static String CONTRACT_MULTICAST_ADDR = "DatagramPort";
     private final static String CONTRACT_DEVICE_NAME = "DeviceName";
     private final static String CONTRACT_RAW_TRACE = "RawTrace";
     private final static String CONTRACT_USB_PRODUCT_IDS = "ProductIds";
@@ -142,6 +143,7 @@ public class DeviceChooserActivity extends FragmentActivity implements ListPicke
 
         response.putExtra(CONTRACT_CONTROL_PORT, addresses.getControlPort());
         response.putExtra(CONTRACT_TRANSFER_PORT, addresses.getTransferPort());
+        response.putExtra(CONTRACT_MULTICAST_ADDR, addresses.getMulticastAddr() + ":" + addresses.getTransferPort());
 
         finishWith(RESULT_OK);
     }

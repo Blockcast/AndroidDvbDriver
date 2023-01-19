@@ -28,7 +28,7 @@ public class InetAddressTools {
 
     static {
         try {
-            LOCAL_LOOPBACK = InetAddress.getByName("127.0.0.1");
+            LOCAL_LOOPBACK = InetAddress.getByName("0.0.0.0");
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }

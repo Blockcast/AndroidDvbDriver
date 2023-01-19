@@ -20,34 +20,87 @@
 
 package info.martinmarinov.dvbservice;
 
+import android.os.Build;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.DatagramPacket;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.DatagramSocket;
 
 import info.martinmarinov.drivers.DvbDevice;
 
-class TransferThread extends Thread {
-    private final DvbDevice dvbDevice;
+class UDPTransferThread extends TransferThread {
+    private final DatagramSocket streamSocket;
+    private final InetSocketAddress multicastAddr;
+
+    UDPTransferThread(DvbDevice dvbDevice, DatagramSocket streamSocket, InetSocketAddress multicastAddr, OnClosedCallback callback) {
+        super(dvbDevice, callback);
+        this.streamSocket = streamSocket;
+        this.multicastAddr = multicastAddr;
+    }
+
+    @Override
+    public void interrupt() {
+        super.interrupt();
+        quietClose(streamSocket);
+
+    }
+
+    @Override
+    public void run() {
+        setName(TransferThread.class.getSimpleName());
+        setPriority(NORM_PRIORITY);
+        try {
+            byte[] buf = new byte[5 * 188];
+
+            transportStream = dvbDevice.getTransportStream(new DvbDevice.StreamCallback() {
+                @Override
+                public void onStreamException(IOException exception) {
+                    lastException = exception;
+                    interrupt();
+                }
+
+                @Override
+                public void onStoppedStreaming() {
+                    interrupt();
+                }
+            });
+            while (!isInterrupted()) {
+                int inlength = transportStream.read(buf);
+
+                if (inlength > 0) {
+                    DatagramPacket p = new DatagramPacket(buf, inlength, multicastAddr.getAddress(), multicastAddr.getPort());
+                    streamSocket.send(p);
+                } else {
+                    // No data, sleep for a bit until available
+                    quietSleep(10);
+                }
+            }
+        } catch (IOException e) {
+            lastException = e;
+        } finally {
+            quietClose(streamSocket);
+            quietClose(transportStream);
+            callback.onClosed();
+        }
+    }
+}
+class TCPTransferThread extends TransferThread {
     private final ServerSocket serverSocket;
-    private final OnClosedCallback callback;
-
-    private IOException lastException = null;
-    private InputStream transportStream;
-
-    TransferThread(DvbDevice dvbDevice, ServerSocket serverSocket, OnClosedCallback callback) {
-        this.dvbDevice = dvbDevice;
+    TCPTransferThread(DvbDevice dvbDevice, ServerSocket serverSocket, OnClosedCallback callback) {
+        super(dvbDevice, callback);
         this.serverSocket = serverSocket;
-        this.callback = callback;
     }
 
     @Override
     public void interrupt() {
         super.interrupt();
         quietClose(serverSocket);
-        quietClose(transportStream);
     }
 
     @Override
@@ -60,10 +113,11 @@ class TransferThread extends Thread {
         try {
             socket = serverSocket.accept();
             socket.setTcpNoDelay(true);
+            os = socket.getOutputStream();
+
 
             byte[] buf = new byte[5 * 188];
 
-            os = socket.getOutputStream();
 
             transportStream = dvbDevice.getTransportStream(new DvbDevice.StreamCallback() {
                 @Override
@@ -96,8 +150,21 @@ class TransferThread extends Thread {
             callback.onClosed();
         }
     }
+}
 
-    private void quietSleep(long ms) {
+abstract class TransferThread extends Thread {
+    final DvbDevice dvbDevice;
+    final OnClosedCallback callback;
+
+    IOException lastException = null;
+    InputStream transportStream;
+
+
+    TransferThread(DvbDevice dvbDevice, OnClosedCallback callback) {
+        this.dvbDevice = dvbDevice;
+        this.callback = callback;
+    }
+    void quietSleep(long ms) {
         try {
             Thread.sleep(ms);
         } catch (InterruptedException e) {
@@ -105,7 +172,7 @@ class TransferThread extends Thread {
         }
     }
 
-    private void quietClose(Closeable c) {
+    void quietClose(Closeable c) {
         if (c != null) {
             try {
                 c.close();
@@ -114,8 +181,20 @@ class TransferThread extends Thread {
             }
         }
     }
+    void quietClose(DatagramSocket c) {
+        if (c != null) {
+            try {
+                c.close();
+            } catch (Exception e) {
+                try {
+                    if (lastException == null) lastException = (IOException) e;
+                } catch (Exception _) {
 
-    private void quietClose(Socket s) {
+                }
+            }
+        }
+    }
+    void quietClose(Socket s) {
         if (s != null) {
             try {
                 s.close();
@@ -125,7 +204,7 @@ class TransferThread extends Thread {
         }
     }
 
-    private void quietClose(ServerSocket s) {
+    void quietClose(ServerSocket s) {
         if (s != null) {
             try {
                 s.close();

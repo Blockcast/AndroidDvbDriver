@@ -91,7 +91,7 @@ public class DvbService extends Service {
                 DvbServer dvbServer = null;
                 try {
                     dvbServer = new DvbServer(getDeviceFromFilter(deviceFilter));
-                    DvbServerPorts dvbServerPorts = dvbServer.bind(InetAddressTools.getLocalLoopback());
+                    DvbServerPorts dvbServerPorts = dvbServer.bind(InetAddressTools.getLocalLoopback(),"230.0.0.1");
                     dvbServer.open();
                     // Device was opened! Tell client it's time to connect
                     broadcastStatus(new StatusMessage(null, dvbServerPorts, deviceFilter));

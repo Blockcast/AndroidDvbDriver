@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.net.DatagramSocket;
 import java.net.Socket;
 import java.net.SocketException;
 
@@ -38,28 +39,31 @@ class DvbServer implements Closeable {
     private final static int SOCKET_TIMEOUT_MS = 20 * 1_000;
     private final ServerSocket controlSocket = new ServerSocket();
     private final ServerSocket transferSocket = new ServerSocket();
+    private final DatagramSocket datagramSocket = new DatagramSocket();
 
     private final DvbDevice dvbDevice;
+    private InetSocketAddress multicastAddr;
 
     DvbServer(DvbDevice dvbDevice) throws IOException {
         this.dvbDevice = dvbDevice;
     }
 
-    DvbServerPorts bind(InetAddress address) throws IOException {
-        return bind(new InetSocketAddress(address, 0));
+    DvbServerPorts bind(InetAddress address, String multicastAddr) throws IOException {
+        return bind(new InetSocketAddress(address, 0), new InetSocketAddress(multicastAddr, 0));
     }
 
-    private DvbServerPorts bind(InetSocketAddress address) throws IOException {
+    private DvbServerPorts bind(InetSocketAddress address, InetSocketAddress multicastAddr) throws IOException {
         try {
             controlSocket.bind(address);
             transferSocket.bind(address);
-
+            datagramSocket.setReuseAddress(true);
             controlSocket.setSoTimeout(SOCKET_TIMEOUT_MS);
             transferSocket.setSoTimeout(SOCKET_TIMEOUT_MS);
+            this.multicastAddr = new InetSocketAddress(multicastAddr.getHostName(), transferSocket.getLocalPort());
             if (!controlSocket.getInetAddress().equals(transferSocket.getInetAddress()))
                 throw new IllegalStateException();
 
-            return new DvbServerPorts(controlSocket.getLocalPort(), transferSocket.getLocalPort());
+            return new DvbServerPorts(controlSocket.getLocalPort(), transferSocket.getLocalPort(), multicastAddr.getHostName());
         } catch (IOException e) {
             close();
             throw e;
@@ -75,6 +79,7 @@ class DvbServer implements Closeable {
         quietClose(dvbDevice);
         quietClose(controlSocket);
         quietClose(transferSocket);
+        quietClose(datagramSocket);
     }
 
     void serve() throws IOException {
@@ -88,7 +93,14 @@ class DvbServer implements Closeable {
             outputStream = new DataOutputStream(control.getOutputStream());
 
             final InputStream finInputStream = inputStream;
-            TransferThread worker = new TransferThread(dvbDevice, transferSocket, new TransferThread.OnClosedCallback() {
+//            TransferThread tcpWorker = new TCPTransferThread(dvbDevice, transferSocket, new TransferThread.OnClosedCallback() {
+//                @Override
+//                public void onClosed() {
+//                    // Close input stream to cancel the request parsing
+//                    quietClose(finInputStream);
+//                }
+//            });
+            TransferThread udpWorker = new UDPTransferThread(dvbDevice, datagramSocket, multicastAddr, new TransferThread.OnClosedCallback() {
                 @Override
                 public void onClosed() {
                     // Close input stream to cancel the request parsing
@@ -97,20 +109,25 @@ class DvbServer implements Closeable {
             });
 
             try {
-                worker.start();
-                while (worker.isAlive() && !Thread.currentThread().isInterrupted()) {
+//                tcpWorker.start();
+                udpWorker.start();
+                while (udpWorker.isAlive() && !Thread.currentThread().isInterrupted()) {
                     Request c = Request.parseAndExecute(inputStream, outputStream, dvbDevice);
                     if (c == Request.REQ_EXIT) break;
                 }
             } catch (SocketException e) {
-                IOException workerException = worker.signalAndWaitToDie();
+//                IOException workerException = tcpWorker.signalAndWaitToDie();
+//                if (workerException != null) throw workerException;
+                IOException workerException = udpWorker.signalAndWaitToDie();
                 if (workerException != null) throw workerException;
                 throw e;
             }
 
             // Finish successfully due to exit command, if worker failed for anything other
             // than a socket exception, throw it
-            IOException workerException = worker.signalAndWaitToDie();
+//            IOException workerException = tcpWorker.signalAndWaitToDie();
+//            if (workerException != null && !(workerException instanceof SocketException)) throw workerException;
+            IOException workerException = udpWorker.signalAndWaitToDie();
             if (workerException != null && !(workerException instanceof SocketException)) throw workerException;
         } finally {
             quietClose(inputStream);
@@ -134,6 +151,16 @@ class DvbServer implements Closeable {
             try {
                 socket.close();
             } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private static void quietClose(DatagramSocket socket) {
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
